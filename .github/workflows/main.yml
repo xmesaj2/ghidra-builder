@@ -16,7 +16,7 @@ on:
     #- cron: '0 0 */3 * *'
 
 env:
-  GRADLE_VERSION: 8.13
+  GRADLE_VERSION: '8.7'
   JAVA_VERSION: '21'
   JAVA_DISTRIBUTION: 'temurin'
 
@@ -70,6 +70,7 @@ jobs:
       # Cache dependencies' downloading
       - name: "Precreate download dir"
         run: mkdir -p ghidra/dependencies/downloads
+        
       - name: "Restore Dependencies Cache"
         uses: actions/cache@v4.2.0
         with:
@@ -77,29 +78,26 @@ jobs:
           path: ./ghidra/dependencies/downloads
           # An explicit key for restoring and saving the cache
           key: "${{ matrix.ghidra.version }}-${{ matrix.platform.os }}-ghdepends"
-      - name: "Fetch dependencies"
+          
+      - name: "Set up Gradle"
         uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew --console plain --quiet --init-script gradle/support/fetchDependencies.gradle init
         with:
-          build-root-directory: ghidra
-          gradle-version: ${{ env.GRADLE_VERSION }}
+         gradle-version: ${{ env.GRADLE_VERSION }}
+        
+      - name: "Fetch dependencies"
+        run: gradle --console plain --quiet --init-script gradle/support/fetchDependencies.gradle init
+        working-directory: ghidra
       
       - name: "Building Ghidra ${{ matrix.ghidra.version }} from ${{ matrix.ghidra.ref }}"
-        uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew --console plain --quiet buildGhidra
-        with:
-          build-root-directory: ghidra
-          gradle-version: ${{ env.GRADLE_VERSION }}
+        run: gradle --console plain --quiet buildGhidra
+        working-directory: ghidra
       
       - name: "Upload package"
-        uses: NyaMisty/upload-artifact@nightly
+        uses: actions/upload-artifact@v4
         with:
           name: "Ghidra_${{ matrix.ghidra.version }}_${{ matrix.platform.os }}"
           path: "ghidra/build/dist/*.zip"
-      #- name: "Upload package"
-      #  uses: NyaMisty/upload-artifact-as-is@nightly
-      #  with:
-      #    path: ghidra/build/dist/
+
   deploy:
     name: 'Push to Release'
     if: always()
@@ -118,13 +116,13 @@ jobs:
           find dist -type f -name "*" -exec sh -c 'mv "{}" "dist1/$( basename "$( dirname "{}" )" )_$( basename "{}" )"' \;
       - name: Get current date
         id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+        run: echo "BUILD_TIME=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
       - name: Pushing to release
         uses: ncipollo/release-action@v1
         with:
-          name: "GhidraNightlyBuild-${{ steps.date.outputs.date }}"
+          name: "GhidraNightlyBuild-$BUILD_TIME"
           commit: ${{ github.sha }}
-          tag: "GhidraNightlyBuild-${{ steps.date.outputs.date }}"
+          tag: "GhidraNightlyBuild-$$BUILD_TIME"
           artifacts: "dist1/*.zip"
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: gautamkrishnar/keepalive-workflow@master # using the workflow with default settings
