@@ -85,7 +85,7 @@ jobs:
          gradle-version: ${{ env.GRADLE_VERSION }}
         
       - name: "Fetch dependencies"
-        run: gradle --console plain --quiet --init-script gradle/support/fetchDependencies.gradle init
+        run: gradle --console plain --quiet --init-script gradle/support/fetchDependencies.gradle
         working-directory: ghidra
       
       - name: "Building Ghidra ${{ matrix.ghidra.version }} from ${{ matrix.ghidra.ref }}"
